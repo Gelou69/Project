@@ -1,0 +1,139 @@
+:root {
+    --primary-color: #4A6572;
+    --secondary-color: #87979B;
+    --accent-color: #F9AA33;
+    --light-bg: #F5F7FA;
+    --dark-text: #344955;
+    --light-text: #ECEFF1;
+}
+img.profile {
+    width: 24px;
+    position: absolute;
+    right: 19px;
+}
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    background: var(--light-bg);
+    color: var(--dark-text);
+}
+
+@keyframes fadeDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+nav {
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    padding: 0.8rem 1.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    animation: fadeDown 0.7s ease-out;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.header .search-container {
+    flex: 1;
+}
+
+.header input[type="search"] {
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    border: none;
+    outline: none;
+    font-size: 0.9rem;
+    background: var(--light-text);
+    transition: all 0.3s ease;
+    margin-left: 287px;
+}
+
+.header input[type="search"]:focus {
+    box-shadow: 0 0 8px var(--accent-color);
+}
+
+.header ul {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    list-style: none;
+    gap: 1.5rem;
+}
+
+.header ul a {
+    text-decoration: none;
+    font-weight: 500;
+    color: var(--light-text);
+    position: relative;
+    transition: color 0.3s ease;
+}
+
+.header ul a:hover {
+    color: var(--accent-color);
+}
+
+.header ul a::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 0%;
+    height: 2px;
+    background: var(--accent-color);
+    transition: width 0.3s ease;
+}
+
+.header ul a:hover::after {
+    width: 100%;
+}
+
+.header .logo {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.header .logo img {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+    cursor: pointer;
+}
+
+.header .logo img:hover {
+    transform: scale(1.1);
+}
+
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+
+    .header ul {
+        flex-wrap: wrap;
+    }
+
+    .header .logo {
+        justify-content: center;
+    }
+
+    .header .search-container {
+        width: 100%;
+    }
+}

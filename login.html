@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h2 class="text-2xl font-bold mb-6 text-center">Login</h2>
+        <form id="loginForm" class="space-y-4">
+            <input type="email" name="email" placeholder="Email" class="w-full p-2 border rounded" required>
+            <input type="password" name="password" placeholder="Password" class="w-full p-2 border rounded" required>
+
+            <!-- Role selection -->
+            <select name="role" class="w-full p-2 border rounded" required>
+                <option value="" disabled selected>Select Role</option>
+                <option value="Student">Student</option>
+                <option value="Teacher">Teacher</option>
+                <option value="Admin">Admin</option>
+            </select>
+
+            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition">
+                Login
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://tyjadcqgnkodalptfsyr.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5amFkY3FnbmtvZGFscHRmc3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3MDE5OTEsImV4cCI6MjA3MDI3Nzk5MX0.bXJWXH1nj8aTafoGHEJCOwdd9fPLzyVNBaeuXexlzmg";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            // Get email, password, role from form
+            const email = formData.get("email");
+            const password = formData.get("password");
+            const selectedRole = formData.get("role");
+
+            // Log in with Supabase Auth
+            const { data: loginData, error: loginError } = await supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+
+            if (loginError) {
+                alert("Error: " + loginError.message);
+                return;
+            }
+
+            const userId = loginData.user.id;
+
+            // Fetch role from profiles table
+            const { data: profile, error: profileError } = await supabaseClient
+                .from("profiles")
+                .select("role")
+                .eq("id", userId)
+                .single();
+
+            if (profileError) {
+                alert("Error fetching profile: " + profileError.message);
+                return;
+            }
+
+            // Check if role matches
+            if (profile.role !== selectedRole) {
+                alert("Role does not match your account. Please select the correct role.");
+                await supabaseClient.auth.signOut();
+                return;
+            }
+
+            // Redirect based on role
+            if (profile.role === "Admin") {
+                window.location.href = "/admin-dashboard.html";
+            } else if (profile.role === "Teacher") {
+                window.location.href = "/teacher-dashboard.html";
+            } else {
+                window.location.href = "/student-dashboard.html";
+            }
+        });
+    </script>
+</body>
+</html>

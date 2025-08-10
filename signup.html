@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h2 class="text-2xl font-bold mb-6 text-center">Sign Up</h2>
+        <form id="signupForm" class="space-y-4">
+            <input type="text" name="first_name" placeholder="First Name" class="w-full p-2 border rounded" required>
+            <input type="text" name="middle_name" placeholder="Middle Name" class="w-full p-2 border rounded">
+            <input type="text" name="last_name" placeholder="Last Name" class="w-full p-2 border rounded" required>
+
+            <select name="gender" class="w-full p-2 border rounded" required>
+                <option value="" disabled selected>Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+            </select>
+
+            <input type="number" name="age" placeholder="Age" class="w-full p-2 border rounded" required>
+
+            <!-- Role Selection -->
+            <select name="role" class="w-full p-2 border rounded" required>
+                <option value="" disabled selected>Role</option>
+                <option value="Student">Student</option>
+                <option value="Teacher">Teacher</option>
+                <option value="Admin">Admin</option>
+            </select>
+
+            <!-- Nationality with Flag -->
+            <div class="relative">
+                <button id="dropdownBtn" type="button" class="w-full flex items-center justify-between border p-2 rounded bg-white">
+                    <span id="selectedFlag" class="flex items-center gap-2 text-gray-500">Select Nationality</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <ul id="dropdownMenu" class="absolute z-10 hidden mt-1 w-full bg-white border rounded shadow max-h-40 overflow-y-auto"></ul>
+            </div>
+            <input type="hidden" name="nationality" id="nationalityInput" required>
+
+            <input type="text" name="username" placeholder="Username" class="w-full p-2 border rounded" required>
+            <input type="email" name="email" placeholder="Email" class="w-full p-2 border rounded" required>
+            <input type="password" name="password" placeholder="Password" class="w-full p-2 border rounded" required>
+
+            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition">Sign Up</button>
+        </form>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://tyjadcqgnkodalptfsyr.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5amFkY3FnbmtvZGFscHRmc3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3MDE5OTEsImV4cCI6MjA3MDI3Nzk5MX0.bXJWXH1nj8aTafoGHEJCOwdd9fPLzyVNBaeuXexlzmg";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const dropdownBtn = document.getElementById('dropdownBtn');
+        const dropdownMenu = document.getElementById('dropdownMenu');
+        const selectedFlag = document.getElementById('selectedFlag');
+        const nationalityInput = document.getElementById('nationalityInput');
+
+        // Toggle dropdown
+        dropdownBtn.addEventListener('click', () => {
+            dropdownMenu.classList.toggle('hidden');
+        });
+
+        // Manual list of countries
+        const countries = [
+          { name: 'United States', flag: 'https://flagcdn.com/w20/us.png' },
+          { name: 'Canada', flag: 'https://flagcdn.com/w20/ca.png' },
+          { name: 'United Kingdom', flag: 'https://flagcdn.com/w20/gb.png' },
+          { name: 'Germany', flag: 'https://flagcdn.com/w20/de.png' },
+          { name: 'France', flag: 'https://flagcdn.com/w20/fr.png' },
+          { name: 'Japan', flag: 'https://flagcdn.com/w20/jp.png' },
+          { name: 'Australia', flag: 'https://flagcdn.com/w20/au.png' },
+        ];
+
+        // Populate dropdown
+        countries.forEach(country => {
+            const li = document.createElement('li');
+            li.className = "flex items-center gap-2 p-2 hover:bg-gray-100 cursor-pointer";
+            li.setAttribute("data-value", country.name);
+            li.setAttribute("data-flag", country.flag);
+            li.innerHTML = `<img src="${country.flag}" class="w-5 h-4"> ${country.name}`;
+            dropdownMenu.appendChild(li);
+        });
+
+        // Select nationality
+        dropdownMenu.querySelectorAll('li').forEach(item => {
+            item.addEventListener('click', () => {
+                const value = item.getAttribute('data-value');
+                const flag = item.getAttribute('data-flag');
+
+                selectedFlag.innerHTML = `<img src="${flag}" class="w-5 h-4"> ${value}`;
+                selectedFlag.classList.remove('text-gray-500');
+                nationalityInput.value = value;
+                dropdownMenu.classList.add('hidden');
+            });
+        });
+
+        // Handle sign-up
+        document.getElementById("signupForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            const role = formData.get("role");
+
+            // Sign up user in Supabase Auth
+            const { data: signupData, error: signupError } = await supabaseClient.auth.signUp({
+                email: formData.get("email"),
+                password: formData.get("password"),
+                options: {
+                    data: {
+                        first_name: formData.get("first_name"),
+                        middle_name: formData.get("middle_name"),
+                        last_name: formData.get("last_name"),
+                        gender: formData.get("gender"),
+                        age: formData.get("age"),
+                        nationality: formData.get("nationality"),
+                        username: formData.get("username"),
+                        role: role
+                    }
+                }
+            });
+
+            if (signupError) {
+                alert("Error: " + signupError.message);
+                return;
+            }
+
+            const userId = signupData.user.id;
+
+            // Prepare profile data
+            const profileData = {
+                id: userId,
+                first_name: formData.get("first_name"),
+                middle_name: formData.get("middle_name"),
+                last_name: formData.get("last_name"),
+                gender: formData.get("gender"),
+                age: formData.get("age"),
+                nationality: formData.get("nationality"),
+                username: formData.get("username"),
+                email: formData.get("email")
+            };
+
+            // Insert into specific role table
+            const { error: insertError } = await supabaseClient
+                .from(role.toLowerCase() + "s") // "students", "teachers", "admins"
+                .insert([profileData]);
+
+            if (insertError) {
+                alert("Error saving profile: " + insertError.message);
+            } else {
+                alert("Sign-up successful! Please check your email to confirm.");
+                e.target.reset();
+                selectedFlag.innerHTML = "Select Nationality";
+                selectedFlag.classList.add('text-gray-500');
+            }
+        });
+    </script>
+</body>
+</html>

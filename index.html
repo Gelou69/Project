@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TeachBook — Supabase Integrated</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--accent:#7c3aed;--accent-2:#06b6d4;--muted:#9aa8b3;--glass-border:rgba(255,255,255,0.06)}
+    *{box-sizing:border-box}
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;background:linear-gradient(180deg,#0f1724 0%, #10233a 60%);color:#e6eef6;margin:0}
+    .app{max-width:1200px;margin:28px auto;padding:20px;display:grid;grid-template-columns:1fr 420px;gap:20px}
+    .card{background:linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));padding:18px;border-radius:14px;border:1px solid var(--glass-border);backdrop-filter:blur(6px)}
+    .teacher{transition:transform .22s,box-shadow .22s}
+    .teacher:hover{transform:translateY(-8px);box-shadow:0 22px 60px rgba(2,6,23,0.6)}
+    .mark{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:700;color:white}
+    .hidden{display:none}
+    @media (max-width:980px){.app{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main>
+      <header style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div class="mark">TB</div>
+        <div>
+          <h1 style="margin:0;font-size:20px">TeachBook</h1>
+          <div style="color:var(--muted);font-size:13px">Book teachers and manage sessions — Supabase-powered</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <div id="auth-area"></div>
+        </div>
+      </header>
+
+      <section class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <h2 style="margin:0">Available Teachers</h2>
+            <div style="color:var(--muted);font-size:13px">Click a teacher to book</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <input id="search" class="px-3 py-2 rounded-md bg-transparent border border-gray-700" placeholder="Search teacher, subject..." />
+            <button id="add-teacher" class="px-3 py-2 rounded-md bg-gradient-to-r from-purple-600 to-teal-400 font-semibold">Add</button>
+          </div>
+        </div>
+
+        <div id="teachers" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </section>
+
+      <section class="card" style="margin-top:12px">
+        <h3 style="margin:0 0 8px 0">My Bookings</h3>
+        <div id="my-bookings"></div>
+      </section>
+    </main>
+
+    <aside>
+      <div class="card" id="auth-card">
+        <div id="auth-forms">
+          <h3 class="mb-2">Sign Up</h3>
+          <form id="signupForm" class="space-y-2">
+            <input name="first_name" placeholder="First Name" class="w-full p-2 rounded bg-transparent border border-gray-700" required />
+            <input name="middle_name" placeholder="Middle Name" class="w-full p-2 rounded bg-transparent border border-gray-700" />
+            <input name="last_name" placeholder="Last Name" class="w-full p-2 rounded bg-transparent border border-gray-700" required />
+            <select name="gender" class="w-full p-2 rounded bg-transparent border border-gray-700" required>
+              <option value="" disabled selected>Gender</option>
+              <option>Male</option><option>Female</option>
+            </select>
+            <input name="age" type="number" placeholder="Age" class="w-full p-2 rounded bg-transparent border border-gray-700" required />
+
+            <div class="relative">
+              <button id="dropdownBtn" type="button" class="w-full flex items-center justify-between border p-2 rounded bg-transparent"> 
+                <span id="selectedFlag" class="text-gray-400">Select Nationality</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+              <ul id="dropdownMenu" class="absolute z-10 hidden mt-1 w-full bg-black bg-opacity-60 border border-gray-700 rounded shadow max-h-40 overflow-y-auto"></ul>
+            </div>
+            <input type="hidden" name="nationality" id="nationalityInput" required />
+
+            <input name="username" placeholder="Username" class="w-full p-2 rounded bg-transparent border border-gray-700" required />
+            <input name="email" type="email" placeholder="Email" class="w-full p-2 rounded bg-transparent border border-gray-700" required />
+            <input name="password" type="password" placeholder="Password" class="w-full p-2 rounded bg-transparent border border-gray-700" required />
+            <div class="flex gap-2">
+              <button id="signupBtn" class="flex-1 px-3 py-2 rounded-md bg-gradient-to-r from-purple-600 to-teal-400 font-semibold">Sign Up</button>
+              <button id="gotoLogin" type="button" class="flex-1 px-3 py-2 rounded-md border border-gray-700">Login</button>
+            </div>
+          </form>
+
+          <form id="loginForm" class="space-y-2 hidden">
+            <h3 class="mb-2">Login</h3>
+            <input name="email" type="email" placeholder="Email" class="w-full p-2 rounded bg-transparent border border-gray-700" required />
+            <input name="password" type="password" placeholder="Password" class="w-full p-2 rounded bg-transparent border border-gray-700" required />
+            <div class="flex gap-2">
+              <button id="loginBtn" class="flex-1 px-3 py-2 rounded-md bg-gradient-to-r from-purple-600 to-teal-400 font-semibold">Login</button>
+              <button id="gotoSignup" type="button" class="flex-1 px-3 py-2 rounded-md border border-gray-700">Sign Up</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="profile" class="hidden">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="width:52px;height:52px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:700">U</div>
+            <div>
+              <div id="profile-name" style="font-weight:700"></div>
+              <div id="profile-email" style="color:var(--muted);font-size:13px"></div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button id="signout" class="flex-1 px-3 py-2 rounded-md border border-gray-700">Sign out</button>
+            <button id="my-account" class="flex-1 px-3 py-2 rounded-md bg-gradient-to-r from-purple-600 to-teal-400">Account</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-4">
+        <h4 class="mb-2">Quick actions</h4>
+        <button id="open-book-modal" class="w-full px-3 py-2 rounded-md bg-gradient-to-r from-purple-600 to-teal-400 mb-2">Book selected</button>
+        <button id="add-teacher-modal" class="w-full px-3 py-2 rounded-md border border-gray-700">Add teacher (server)</button>
+      </div>
+    </aside>
+
+    <!-- booking modal -->
+    <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+      <div class="bg-gradient-to-b from-gray-900 to-gray-800 p-6 rounded-lg w-full max-w-xl">
+        <button id="close" class="float-right text-gray-400">✕</button>
+        <h3 id="modal-title">Book a session</h3>
+        <div class="mt-3 space-y-2">
+          <div class="grid grid-cols-2 gap-2">
+            <input id="b-teacher" readonly class="p-2 rounded bg-transparent border border-gray-700" />
+            <input id="b-price" readonly class="p-2 rounded bg-transparent border border-gray-700" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input id="b-date" type="date" class="p-2 rounded bg-transparent border border-gray-700" />
+            <select id="b-time" class="p-2 rounded bg-transparent border border-gray-700"><option>09:00</option><option>10:00</option><option>11:00</option><option>13:00</option></select>
+          </div>
+          <input id="b-note" placeholder="Notes (optional)" class="w-full p-2 rounded bg-transparent border border-gray-700" />
+          <div class="flex gap-2 justify-end">
+            <button id="confirm-book" class="px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-teal-400">Confirm</button>
+            <button id="cancel" class="px-4 py-2 rounded-md border border-gray-700">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Supabase config (kept from your provided code)
+    const SUPABASE_URL = "https://tyjadcqgnkodalptfsyr.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5amFkY3FnbmtvZGFscHRmc3lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3MDE5OTEsImV4cCI6MjA3MDI3Nzk5MX0.bXJWXH1nj8aTafoGHEJCOwdd9fPLzyVNBaeuXexlzmg";
+    const supabase = supabaseJs.createClient ? supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // UI refs
+    const signupForm = document.getElementById('signupForm');
+    const loginForm = document.getElementById('loginForm');
+    const gotoLogin = document.getElementById('gotoLogin');
+    const gotoSignup = document.getElementById('gotoSignup');
+    const authArea = document.getElementById('auth-area');
+    const profile = document.getElementById('profile');
+    const authCard = document.getElementById('auth-card');
+
+    const teachersEl = document.getElementById('teachers');
+    const searchInput = document.getElementById('search');
+    const myBookingsEl = document.getElementById('my-bookings');
+
+    const modal = document.getElementById('modal');
+    const closeBtn = document.getElementById('close');
+    const cancelBtn = document.getElementById('cancel');
+    const confirmBtn = document.getElementById('confirm-book');
+
+    let selectedTeacher = null;
+    let currentUser = null;
+
+    // Countries (small set) for nationality dropdown
+    const countries = [
+      { name: 'United States', flag: 'https://flagcdn.com/w20/us.png' },
+      { name: 'Canada', flag: 'https://flagcdn.com/w20/ca.png' },
+      { name: 'United Kingdom', flag: 'https://flagcdn.com/w20/gb.png' },
+      { name: 'Germany', flag: 'https://flagcdn.com/w20/de.png' },
+      { name: 'France', flag: 'https://flagcdn.com/w20/fr.png' },
+      { name: 'Japan', flag: 'https://flagcdn.com/w20/jp.png' },
+      { name: 'Australia', flag: 'https://flagcdn.com/w20/au.png' },
+    ];
+
+    // populate dropdown
+    const dropdownBtn = document.getElementById('dropdownBtn');
+    const dropdownMenu = document.getElementById('dropdownMenu');
+    const selectedFlag = document.getElementById('selectedFlag');
+    const nationalityInput = document.getElementById('nationalityInput');
+
+    dropdownBtn.addEventListener('click', () => dropdownMenu.classList.toggle('hidden'));
+    countries.forEach(c=>{const li=document.createElement('li');li.className='p-2 hover:bg-gray-700 cursor-pointer flex items-center gap-2';li.innerHTML=`<img src="${c.flag}" class="w-5 h-4"> ${c.name}`;li.addEventListener('click',()=>{selectedFlag.innerHTML=`<img src="${c.flag}" class="w-5 h-4"> ${c.name}`;nationalityInput.value=c.name;dropdownMenu.classList.add('hidden')});dropdownMenu.appendChild(li)})
+
+    // auth UI toggles
+    gotoLogin.addEventListener('click',()=>{signupForm.classList.add('hidden');loginForm.classList.remove('hidden')})
+    gotoSignup.addEventListener('click',()=>{loginForm.classList.add('hidden');signupForm.classList.remove('hidden')})
+
+    // sign up
+    signupForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(signupForm);
+      const email = fd.get('email');
+      const password = fd.get('password');
+      const { data, error } = await supabase.auth.signUp({ email, password }, { data: {
+        first_name: fd.get('first_name'), middle_name: fd.get('middle_name'), last_name: fd.get('last_name'), gender: fd.get('gender'), age: fd.get('age'), nationality: fd.get('nationality'), username: fd.get('username')
+      }});
+      if(error) return alert(error.message);
+      alert('Check your email to confirm.');
+      signupForm.reset(); selectedFlag.innerHTML='Select Nationality';
+    })
+
+    // login
+    loginForm.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(loginForm);
+      const { error, data } = await supabase.auth.signInWithPassword({ email: fd.get('email'), password: fd.get('password') });
+      if(error) return alert(error.message);
+      // will trigger onAuthStateChange
+    })
+
+    // sign out
+    document.getElementById('signout').addEventListener('click', async ()=>{ await supabase.auth.signOut(); location.reload(); })
+
+    // watch auth
+    supabase.auth.onAuthStateChange((event, session) => {
+      currentUser = session?.user || null;
+      updateAuthUI();
+      if(currentUser) loadMyBookings();
+      loadTeachers();
+    });
+
+    async function updateAuthUI(){
+      const user = (await supabase.auth.getUser()).data.user;
+      if(user){
+        document.getElementById('profile-name').textContent = user.user_metadata?.first_name || user.email;
+        document.getElementById('profile-email').textContent = user.email;
+        document.getElementById('auth-forms').classList.add('hidden');
+        document.getElementById('profile').classList.remove('hidden');
+      } else {
+        document.getElementById('auth-forms').classList.remove('hidden');
+        document.getElementById('profile').classList.add('hidden');
+      }
+    }
+
+    // Teachers: fetch from supabase table 'teachers'
+    async function loadTeachers(){
+      const q = searchInput.value.trim();
+      let { data, error } = await supabase.from('teachers').select('*').order('created_at', {ascending:false});
+      if(error) { console.error(error); teachersEl.innerHTML = '<div class="text-red-400">Failed to load teachers</div>'; return }
+      if(q) data = data.filter(t=> (t.name+" "+t.subject+" "+(t.tags||'')).toLowerCase().includes(q.toLowerCase()))
+      if(!data.length) { teachersEl.innerHTML = '<div class="text-gray-400">No teachers yet. Add one.</div>'; return }
+      teachersEl.innerHTML = '';
+      data.forEach(t=>{
+        const div = document.createElement('div'); div.className='teacher card p-3';
+        div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">${t.name}</div><div style="color:var(--muted);font-size:13px">${t.subject} • ${t.level}</div></div><div style="text-align:right"><div style="font-weight:800">$${t.price}/hr</div><div style="font-size:12px;color:var(--muted)">${t.tags||''}</div></div></div>`;
+        div.addEventListener('click', ()=>{ openBookingModal(t) });
+        teachersEl.appendChild(div);
+      })
+    }
+
+    searchInput.addEventListener('input', ()=>loadTeachers())
+
+    // Add teacher (simple server insert)
+    document.getElementById('add-teacher-modal').addEventListener('click', async ()=>{
+      const name = prompt('Teacher name'); if(!name) return;
+      const subject = prompt('Subject', 'Math'); if(!subject) return;
+      const price = Number(prompt('Price per hour', '15'))||15;
+      const level = prompt('Level', 'All Levels')||'All Levels';
+      const tags = prompt('Comma-separated tags','').split(',').map(s=>s.trim()).filter(Boolean).join(', ');
+      const { data, error } = await supabase.from('teachers').insert([{ name, subject, price, level, tags }]);
+      if(error) return alert('Error adding teacher: '+error.message);
+      loadTeachers();
+    })
+
+    // Booking modal
+    function openBookingModal(t){
+      if(!currentUser){ alert('Please login to book.'); return }
+      selectedTeacher = t;
+      document.getElementById('b-teacher').value = t.name;
+      document.getElementById('b-price').value = '$'+t.price+'/hr';
+      document.getElementById('b-date').value = new Date().toISOString().slice(0,10);
+      modal.classList.remove('hidden');
+    }
+    closeBtn.addEventListener('click', ()=>modal.classList.add('hidden'))
+    cancelBtn.addEventListener('click', ()=>modal.classList.add('hidden'))
+
+    confirmBtn.addEventListener('click', async ()=>{
+      const date = document.getElementById('b-date').value;
+      const time = document.getElementById('b-time').value;
+      const note = document.getElementById('b-note').value;
+      if(!selectedTeacher) return alert('No teacher selected');
+      const payload = { teacher_id: selectedTeacher.id, teacher_name: selectedTeacher.name, student_id: currentUser.id, student_email: currentUser.email, date, time, price: selectedTeacher.price, note };
+      const { data, error } = await supabase.from('bookings').insert([payload]);
+      if(error) return alert('Booking failed: '+error.message);
+      modal.classList.add('hidden'); loadMyBookings(); alert('Booked successfully');
+    })
+
+    // Load current user's bookings
+    async function loadMyBookings(){
+      if(!currentUser){ myBookingsEl.innerHTML = '<div class="text-gray-400">Login to see your bookings</div>'; return }
+      const { data, error } = await supabase.from('bookings').select('*').eq('student_id', currentUser.id).order('created_at', {ascending:false});
+      if(error) { myBookingsEl.innerHTML = '<div class="text-red-400">Error loading bookings</div>'; return }
+      if(!data.length) { myBookingsEl.innerHTML = '<div class="text-gray-400">No bookings yet</div>'; return }
+      myBookingsEl.innerHTML = '';
+      data.forEach(b=>{
+        const el = document.createElement('div'); el.className='p-2 border-b border-gray-700';
+        el.innerHTML = `<div style="display:flex;justify-content:space-between"><div><div style="font-weight:700">${b.teacher_name}</div><div style="color:var(--muted);font-size:13px">${b.date} @ ${b.time}</div></div><div style="text-align:right"><div style="font-weight:700">$${b.price}</div><button data-id="${b.id}" class="mt-2 px-2 py-1 rounded border border-gray-700">Cancel</button></div></div>`;
+        const btn = el.querySelector('button'); btn.addEventListener('click', async ()=>{
+          if(!confirm('Cancel booking?')) return; const { error } = await supabase.from('bookings').delete().eq('id', b.id); if(error) return alert(error.message); loadMyBookings();
+        })
+        myBookingsEl.appendChild(el);
+      })
+    }
+
+    // Initialize
+    (async function init(){
+      // Try to get session user
+      const u = await supabase.auth.getUser(); currentUser = u.data.user || null; updateAuthUI();
+      await loadTeachers(); if(currentUser) loadMyBookings();
+    })();
+  </script>
+</body>
+</html>
