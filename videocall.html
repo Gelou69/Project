@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>P2P Video Call (WebRTC, No Server)</title>
+<style>
+  :root{
+    --bg:#0f1220;
+    --card:#161a2b;
+    --muted:#757b9a;
+    --text:#e9ecff;
+    --accent:#7c5cff;
+    --accent-2:#22d3ee;
+    --danger:#ef4444;
+    --ok:#10b981;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+    background: radial-gradient(1200px 800px at 20% 0%, #1a1f37, #0f1220);
+    color:var(--text);
+  }
+
+  .wrap{
+    max-width:1100px;
+    margin:24px auto;
+    padding:20px;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:16px;
+  }
+  .brand{
+    display:flex;align-items:center;gap:12px;
+  }
+  .logo{
+    width:40px;height:40px;border-radius:12px;
+    background: conic-gradient(from 210deg at 50% 50%, var(--accent), var(--accent-2));
+    box-shadow: 0 10px 25px rgba(124,92,255,.35);
+  }
+  h1{font-size:1.25rem;margin:0;font-weight:700;letter-spacing:.2px}
+  .hint{font-size:.85rem;color:var(--muted)}
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1.1fr .9fr;
+    gap:16px;
+  }
+  @media (max-width: 960px){
+    .grid{grid-template-columns: 1fr}
+  }
+
+  .card{
+    background:linear-gradient(180deg, rgba(124,92,255,.06), transparent 60%) , var(--card);
+    border:1px solid rgba(255,255,255,.06);
+    border-radius:18px;
+    padding:14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+
+  .videos{
+    display:grid;
+    grid-template-rows: auto 100px;
+    gap:10px;
+    min-height:420px;
+  }
+  .remote{
+    position:relative;
+    aspect-ratio:16/9;
+    border-radius:16px;
+    overflow:hidden;
+    background:#0b0e1a;
+    border:1px solid rgba(255,255,255,.06);
+  }
+  video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    background:#000;
+  }
+  .local{
+    position:absolute;
+    right:12px; bottom:12px;
+    width:260px; aspect-ratio:16/9;
+    border-radius:12px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.15);
+    box-shadow: 0 12px 30px rgba(0,0,0,.4);
+  }
+  .controls{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+  }
+  button, .btn{
+    background:linear-gradient(135deg, rgba(124,92,255,.2), rgba(34,211,238,.15));
+    border:1px solid rgba(255,255,255,.12);
+    color:var(--text);
+    padding:10px 14px;
+    border-radius:12px;
+    font-weight:600;
+    cursor:pointer;
+    transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+    user-select:none;
+  }
+  button:hover{ transform: translateY(-1px); box-shadow:0 10px 20px rgba(0,0,0,.25) }
+  button:disabled{ opacity:.5; cursor:not-allowed; transform:none }
+  .btn-danger{ background: linear-gradient(135deg, rgba(239,68,68,.25), rgba(239,68,68,.15)); border-color: rgba(239,68,68,.35) }
+  .btn-ok{ background: linear-gradient(135deg, rgba(16,185,129,.25), rgba(16,185,129,.15)); border-color: rgba(16,185,129,.35) }
+
+  .stack{display:flex; flex-direction:column; gap:8px}
+  label{font-size:.85rem;color:var(--muted)}
+  textarea{
+    width:100%; min-height:130px; resize:vertical;
+    background: #0c1020; color: var(--text);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:12px; padding:10px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  input[type="text"]{
+    width:100%; background:#0c1020; color:var(--text);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:10px; padding:10px 12px;
+  }
+  .row{display:flex; gap:8px; align-items:center}
+  .row .grow{flex:1}
+
+  .chat{
+    display:grid; gap:10px; grid-template-rows: 1fr auto;
+    height:240px;
+  }
+  .chat-log{
+    background:#0c1020; border:1px solid rgba(255,255,255,.08);
+    border-radius:12px; padding:10px; overflow:auto; font-size:.95rem;
+  }
+  .bubble{
+    padding:8px 10px; margin:6px 0; border-radius:10px;
+    background:rgba(124,92,255,.15); border:1px solid rgba(124,92,255,.25)
+  }
+  .bubble.me{ background:rgba(34,211,238,.15); border-color:rgba(34,211,238,.25) }
+
+  .badge{
+    font-size:.8rem; color:#cbd5ff; opacity:.9
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>P2P Video Call</h1>
+          <div class="hint">No server needed — copy/paste the SDP between peers.</div>
+        </div>
+      </div>
+      <div class="badge" id="status">Idle</div>
+    </header>
+
+    <div class="grid">
+      <!-- LEFT: Videos + media controls -->
+      <section class="card videos">
+        <div class="remote" id="remoteBox">
+          <video id="remoteVideo" autoplay playsinline></video>
+          <div class="local"><video id="localVideo" muted autoplay playsinline></video></div>
+        </div>
+        <div class="controls">
+          <button id="btnStart">Start Camera</button>
+          <button id="btnOffer" disabled>Create Offer</button>
+          <button id="btnApplyAnswer" disabled>Apply Answer</button>
+          <button id="btnScreen">Share Screen</button>
+          <button id="btnMic">Mute</button>
+          <button id="btnCam">Camera Off</button>
+          <button id="btnHang" class="btn-danger">Hang Up</button>
+        </div>
+      </section>
+
+      <!-- RIGHT: Signaling + chat -->
+      <section class="card stack">
+        <div class="stack">
+          <div class="row">
+            <label class="grow">Offer (from Caller)</label>
+            <button id="btnCopyOffer">Copy</button>
+          </div>
+          <textarea id="offerBox" placeholder="Click 'Create Offer' then copy this into the other device."></textarea>
+        </div>
+
+        <div class="stack">
+          <div class="row">
+            <label class="grow">Paste Offer here (on Callee) → Generate Answer</label>
+            <button id="btnAnswer" class="btn-ok">Generate Answer</button>
+          </div>
+          <textarea id="offerIn" placeholder="Paste the offer here to generate an answer."></textarea>
+        </div>
+
+        <div class="stack">
+          <div class="row">
+            <label class="grow">Answer (from Callee)</label>
+            <button id="btnCopyAnswer">Copy</button>
+          </div>
+          <textarea id="answerBox" placeholder="After generating, copy this back to the caller."></textarea>
+        </div>
+
+        <div class="stack">
+          <label>Paste Answer here (on Caller)</label>
+          <textarea id="answerIn" placeholder="Caller pastes the answer here, then click 'Apply Answer'."></textarea>
+        </div>
+
+        <div class="card stack" style="background:transparent; border:none; padding:0; gap:10px">
+          <div class="chat">
+            <div class="chat-log" id="chatLog"></div>
+            <div class="row">
+              <input type="text" id="chatInput" placeholder="Type a message…" />
+              <button id="chatSend">Send</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const btnStart = document.getElementById('btnStart');
+  const btnOffer = document.getElementById('btnOffer');
+  const btnAnswerGen = document.getElementById('btnAnswer');
+  const btnApplyAnswer = document.getElementById('btnApplyAnswer');
+  const btnCopyOffer = document.getElementById('btnCopyOffer');
+  const btnCopyAnswer = document.getElementById('btnCopyAnswer');
+  const btnScreen = document.getElementById('btnScreen');
+  const btnMic = document.getElementById('btnMic');
+  const btnCam = document.getElementById('btnCam');
+  const btnHang = document.getElementById('btnHang');
+
+  const offerBox = document.getElementById('offerBox');
+  const offerIn  = document.getElementById('offerIn');
+  const answerBox = document.getElementById('answerBox');
+  const answerIn  = document.getElementById('answerIn');
+
+  const localVideo  = document.getElementById('localVideo');
+  const remoteVideo = document.getElementById('remoteVideo');
+
+  const statusEl = document.getElementById('status');
+
+  const chatLog = document.getElementById('chatLog');
+  const chatInput = document.getElementById('chatInput');
+  const chatSend = document.getElementById('chatSend');
+
+  let pc = null;
+  let localStream = null;
+  let screenStream = null;
+  let dataChannel = null;
+
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
+    ]
+  };
+
+  function setStatus(t){ statusEl.textContent = t; }
+
+  function logChat(text, me=false){
+    const div = document.createElement('div');
+    div.className = 'bubble' + (me ? ' me' : '');
+    div.textContent = text;
+    chatLog.appendChild(div);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  function createPeerConnection(isCaller=false){
+    pc = new RTCPeerConnection(rtcConfig);
+
+    pc.onconnectionstatechange = () => setStatus(`Peer: ${pc.connectionState}`);
+    pc.oniceconnectionstatechange = () => setStatus(`ICE: ${pc.iceConnectionState}`);
+
+    pc.ontrack = (ev) => {
+      // Attach only first stream's track set
+      if (remoteVideo.srcObject !== ev.streams[0]) {
+        remoteVideo.srcObject = ev.streams[0];
+      }
+    };
+
+    pc.ondatachannel = (ev) => {
+      dataChannel = ev.channel;
+      bindDataChannel();
+    };
+
+    if(isCaller){
+      dataChannel = pc.createDataChannel('chat');
+      bindDataChannel();
+    }
+
+    if(localStream){
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    }
+  }
+
+  function bindDataChannel(){
+    if(!dataChannel) return;
+    dataChannel.onopen = () => setStatus('Chat ready');
+    dataChannel.onmessage = (ev) => logChat(ev.data, false);
+    dataChannel.onerror = (e) => console.warn('DC error', e);
+  }
+
+  function waitForICEGathering(){
+    return new Promise(resolve => {
+      if (pc.iceGatheringState === 'complete') {
+        resolve();
+      } else {
+        const check = () => {
+          if (pc.iceGatheringState === 'complete') {
+            pc.removeEventListener('icegatheringstatechange', check);
+            resolve();
+          }
+        };
+        pc.addEventListener('icegatheringstatechange', check);
+        // Also finalize after brief delay in case of no more candidates
+        setTimeout(resolve, 1200);
+      }
+    });
+  }
+
+  async function startCamera(){
+    if(localStream) return;
+    try{
+      localStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:true });
+      localVideo.srcObject = localStream;
+      btnOffer.disabled = false;
+      setStatus('Camera ready');
+    }catch(err){
+      alert('Could not access camera/mic: ' + err.message);
+    }
+  }
+
+  async function createOffer(){
+    createPeerConnection(true);
+    try{
+      const offer = await pc.createOffer({ offerToReceiveAudio:true, offerToReceiveVideo:true });
+      await pc.setLocalDescription(offer);
+      await waitForICEGathering();
+      offerBox.value = JSON.stringify(pc.localDescription);
+      btnApplyAnswer.disabled = false;
+      setStatus('Offer created. Share it to peer.');
+    }catch(e){
+      alert('Failed to create offer: ' + e.message);
+    }
+  }
+
+  async function generateAnswer(){
+    try{
+      const remoteDesc = JSON.parse(offerIn.value.trim());
+      if(pc) pc.close();
+      createPeerConnection(false);
+      await pc.setRemoteDescription(new RTCSessionDescription(remoteDesc));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await waitForICEGathering();
+      answerBox.value = JSON.stringify(pc.localDescription);
+      setStatus('Answer generated. Send back to caller.');
+    }catch(e){
+      alert('Failed to generate answer: ' + e.message);
+    }
+  }
+
+  async function applyAnswer(){
+    try{
+      const ans = JSON.parse(answerIn.value.trim());
+      await pc.setRemoteDescription(new RTCSessionDescription(ans));
+      setStatus('Connected (negotiation complete)');
+    }catch(e){
+      alert('Failed to apply answer: ' + e.message);
+    }
+  }
+
+  async function shareScreen(){
+    try{
+      if(!pc){ alert('Start a call first'); return; }
+      if(!screenStream){
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ video:true, audio:false });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if(sender) await sender.replaceTrack(screenTrack);
+        screenTrack.onended = async () => {
+          await restoreCameraVideo();
+        };
+      } else {
+        await restoreCameraVideo();
+      }
+    }catch(e){
+      alert('Screen share failed: ' + e.message);
+    }
+  }
+  async function restoreCameraVideo(){
+    const camTrack = localStream?.getVideoTracks()[0];
+    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+    if(camTrack && sender) await sender.replaceTrack(camTrack);
+    if(screenStream){
+      screenStream.getTracks().forEach(t => t.stop());
+      screenStream = null;
+    }
+  }
+
+  function toggleMic(){
+    if(!localStream) return;
+    const track = localStream.getAudioTracks()[0];
+    if(!track) return;
+    track.enabled = !track.enabled;
+    btnMic.textContent = track.enabled ? 'Mute' : 'Unmute';
+  }
+  function toggleCam(){
+    if(!localStream) return;
+    const track = localStream.getVideoTracks()[0];
+    if(!track) return;
+    track.enabled = !track.enabled;
+    btnCam.textContent = track.enabled ? 'Camera Off' : 'Camera On';
+  }
+
+  function hangup(){
+    [localStream, screenStream].forEach(s => s?.getTracks().forEach(t => t.stop()));
+    if(pc){ pc.getSenders().forEach(s => s.track && s.track.stop()); pc.ontrack=null; pc.close(); }
+    pc = null;
+    dataChannel = null;
+    remoteVideo.srcObject = null;
+    setStatus('Hang up');
+    btnApplyAnswer.disabled = true;
+  }
+
+  async function copy(el){
+    try{
+      await navigator.clipboard.writeText(el.value);
+      const old = el.value;
+      el.value = old + (old.endsWith('\n') ? '' : '\n') + '✅ Copied';
+      setTimeout(()=>{ el.value = old; }, 600);
+    }catch(_){
+      alert('Clipboard not available — select all and copy manually.');
+    }
+  }
+
+  // Chat
+  chatSend.addEventListener('click', () => {
+    const txt = chatInput.value.trim();
+    if(!txt) return;
+    if(!dataChannel || dataChannel.readyState!=='open'){ alert('Chat not ready'); return; }
+    dataChannel.send(txt);
+    logChat(txt, true);
+    chatInput.value='';
+  });
+  chatInput.addEventListener('keydown', (e)=>{
+    if(e.key==='Enter'){ e.preventDefault(); chatSend.click(); }
+  });
+
+  // Bind UI
+  btnStart.addEventListener('click', startCamera);
+  btnOffer.addEventListener('click', createOffer);
+  btnAnswerGen.addEventListener('click', generateAnswer);
+  btnApplyAnswer.addEventListener('click', applyAnswer);
+  btnCopyOffer.addEventListener('click', () => copy(offerBox));
+  btnCopyAnswer.addEventListener('click', () => copy(answerBox));
+  btnScreen.addEventListener('click', shareScreen);
+  btnMic.addEventListener('click', toggleMic);
+  btnCam.addEventListener('click', toggleCam);
+  btnHang.addEventListener('click', hangup);
+
+  // Autoplay helper: require user gesture (click Start) to unlock audio.
+  setStatus('Idle — click “Start Camera” on each device.');
+})();
+</script>
+</body>
+</html>
